@@ -1,9 +1,8 @@
-republish: false
 spring:
   cloud:
     stream:
       function:
-        definition: queue1Sink;queue2Sink;failedSink
+        definition: queue1Sink;queue2Sink;failedSink;deadLetterSink
       bindings:
         queue1Sink-in-0:
           destination: demo-exchange
@@ -18,6 +17,9 @@ spring:
         failedSink-in-0:
           destination: failed-exchange
           group: failed-queue
+        deadLetterSink-in-0:
+          destination: deadLetter-exchange
+          group: deadLetter-queue
         source-out-0:
           destination: demo-exchange
         failed-out-0:
@@ -26,27 +28,40 @@ spring:
         bindings:
           queue1Sink-in-0:
             consumer:
+              ttl: 5000
+              maxLength: 5
+              overflowBehavior: reject-publish-dlx
               queueNameGroupOnly: true
               bindingRoutingKey: routing-queue1
               autoBindDlq: true
               deadLetterExchange: retry-exchange
               deadLetterQueueName: retry-queue
               dlq-ttl: 5000
-              republishToDlq: ${republish}
+              republishToDlq: true
               dlqDeadLetterExchange:
           queue2Sink-in-0:
             consumer:
+              ttl: 5000
+              maxLength: 5
+              overflowBehavior: reject-publish-dlx
               queueNameGroupOnly: true
               bindingRoutingKey: routing-queue2
               autoBindDlq: true
               deadLetterExchange: retry-exchange
               deadLetterQueueName: retry-queue
               dlq-ttl: 5000
-              republishToDlq: ${republish}
+              republishToDlq: true
               dlqDeadLetterExchange:
           failedSink-in-0:
             consumer:
+              exchangeType: topic
               queueNameGroupOnly: true
+              requeueRejected: true
+          deadLetterSink-in-0:
+            consumer:
+              exchangeType: topic
+              queueNameGroupOnly: true
+              requeueRejected: true
           source-out-0:
             producer:
               exchangeType: topic
