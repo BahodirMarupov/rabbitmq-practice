@@ -1,3 +1,4 @@
+republish: false
 spring:
   cloud:
     stream:
@@ -8,12 +9,12 @@ spring:
           destination: demo-exchange
           group: demo-queue1
           consumer:
-            max-attempts: 4
+            max-attempts: 1
         queue2Sink-in-0:
           destination: demo-exchange
           group: demo-queue2
           consumer:
-            max-attempts: 4
+            max-attempts: 1
         failedSink-in-0:
           destination: failed-exchange
           group: failed-queue
@@ -27,14 +28,25 @@ spring:
             consumer:
               queueNameGroupOnly: true
               bindingRoutingKey: routing-queue1
+              autoBindDlq: true
+              deadLetterExchange: retry-exchange
+              deadLetterQueueName: retry-queue
+              dlq-ttl: 5000
+              republishToDlq: ${republish}
+              dlqDeadLetterExchange:
           queue2Sink-in-0:
             consumer:
               queueNameGroupOnly: true
               bindingRoutingKey: routing-queue2
+              autoBindDlq: true
+              deadLetterExchange: retry-exchange
+              deadLetterQueueName: retry-queue
+              dlq-ttl: 5000
+              republishToDlq: ${republish}
+              dlqDeadLetterExchange:
           failedSink-in-0:
             consumer:
               queueNameGroupOnly: true
-          #              requeueRejected: true
           source-out-0:
             producer:
               exchangeType: topic

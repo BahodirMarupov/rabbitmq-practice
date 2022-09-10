@@ -1,11 +1,13 @@
 package jmp.rabbitmq.consumer;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import jmp.rabbitmq.model.dto.ReceiptDto;
 import jmp.rabbitmq.model.entity.FailedMessage;
 import jmp.rabbitmq.model.enumuration.MessageStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.ImmediateAcknowledgeAmqpException;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.messaging.Message;
@@ -27,8 +29,12 @@ public class ReceiptConsumer implements Consumer<Message<ReceiptDto>> {
   @Override
   public void accept(Message<ReceiptDto> message) {
     log.info("{} , payload={} , headers={}", consumerName, message.getPayload(), message.getHeaders());
-    AtomicInteger attempts = (AtomicInteger) message.getHeaders().get("deliveryAttempt");
-    if (attempts.get() > 3) {
+
+    var deathHeader = message.getHeaders().get("x-death", List.class);
+    var death = deathHeader != null && deathHeader.size() > 0
+        ? (Map<String, Object>)deathHeader.get(0)
+        : null;
+    if (death != null && (long) death.get("count") > 2) {
       ReceiptDto receiptDto = message.getPayload();
       FailedMessage failedMessage = FailedMessage.builder()
           .payload(receiptDto.toString())
@@ -40,9 +46,8 @@ public class ReceiptConsumer implements Consumer<Message<ReceiptDto>> {
           MessageBuilder
               .withPayload(failedMessage)
               .build());
-      throw new ImmediateAcknowledgeAmqpException("Failed after 4 attempts");
+      throw new ImmediateAcknowledgeAmqpException("Failed after 3 attempts");
     }
-    throw new RuntimeException();
-
+    throw new AmqpRejectAndDontRequeueException("failed");
   }
 }
